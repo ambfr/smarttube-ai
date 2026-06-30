@@ -3,6 +3,7 @@ from app.services.youtube import search_youtube
 from app.services.scoring import (
     compute_score_with_sentiment,
     apply_content_analysis_adjustment,
+    is_short_video,
 )
 from app.services.groq import get_ai_summary, get_video_summary
 from app.services.comments import fetch_comments
@@ -24,6 +25,10 @@ async def rank(
         videos = await search_youtube(query, max_results)
         if not videos:
             return RankResponse(query=query, intent=intent, results=[], total=0, top_score=0, total_comments_read=0)
+
+        # 1b. Split out Shorts — they get a separate lightweight track, not full ranking
+        shorts = [v for v in videos if is_short_video(v.duration)]
+        videos = [v for v in videos if not is_short_video(v.duration)]
 
         # 2. For top 6 videos, fetch comments + sentiment
         sentiment_data = {}
@@ -50,9 +55,9 @@ async def rank(
 
         scored.sort(key=lambda x: x[1], reverse=True)
 
-        # 4. Fetch transcripts for top 5 only (used for content analysis + summaries)
+        # 4. Fetch transcripts for ALL videos (used for both content analysis + summaries)
         transcripts = {}
-        for video, base_score, s in scored[:5]:
+        for video, base_score, s in scored:
             transcripts[video.video_id] = fetch_transcript(video.video_id)
 
         # 5. Content analysis (top 5 only — expensive, only matters for ranking)
@@ -96,11 +101,9 @@ async def rank(
                 ai_summary = ai_data.get("summary", "")
                 ai_tag = ai_data.get("tag", "")
 
-            # Video summary only for top 4 labeled results
-            video_summary = ""
-            if i < 4:
-                transcript = transcripts.get(video.video_id, "")
-                video_summary = await get_video_summary(video.title, video.channel, transcript)
+            # Video summary for every result
+            transcript = transcripts.get(video.video_id, "")
+            video_summary = await get_video_summary(video.title, video.channel, transcript)
 
             results.append(RankedVideo(
                 video_id=video.video_id,
@@ -125,6 +128,25 @@ async def rank(
 
         top_score = results[0].score if results else 0
 
+        # Build lightweight shorts list — just metadata, no AI scoring (keeps speed fast)
+        shorts_results = [
+            RankedVideo(
+                video_id=v.video_id,
+                title=v.title,
+                channel=v.channel,
+                views=v.views,
+                likes=v.likes,
+                published_at=v.published_at,
+                duration=v.duration,
+                thumbnail_url=v.thumbnail_url,
+                score=0,
+                label=None,
+                rank=i,
+                is_short=True,
+            )
+            for i, v in enumerate(shorts)
+        ]
+
         return RankResponse(
             query=query,
             intent=intent,
@@ -132,6 +154,7 @@ async def rank(
             total=len(results),
             top_score=top_score,
             total_comments_read=total_comments_read,
+            shorts=shorts_results,
         )
 
     except Exception as e:

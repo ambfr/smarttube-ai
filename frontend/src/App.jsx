@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import Header from './components/Header'
 import SearchBar from './components/SearchBar'
 import VideoCard from './components/VideoCard'
+import ShortCard from './components/ShortCard'
 import StatsBar from './components/StatsBar'
 import SavedPage from './components/SavedPage'
 import { rankVideos } from './services/api'
@@ -14,6 +15,7 @@ export default function App() {
   const [query, setQuery] = useState('')
   const [topScore, setTopScore] = useState(null)
   const [commentsRead, setCommentsRead] = useState(0)
+  const [shorts, setShorts] = useState([])
 
   const handleSearch = async (q) => {
     setLoading(true)
@@ -24,6 +26,7 @@ export default function App() {
       setVideos(data.results || [])
       setTopScore(data.top_score || null)
       setCommentsRead(data.total_comments_read || 0)
+      setShorts(data.shorts || [])
     } catch (err) {
       setError('Something went wrong. Please try again.')
       setVideos([])
@@ -105,6 +108,23 @@ export default function App() {
                   No results found for "{query}". Try a different search.
                 </div>
               )}
+
+              {!loading && shorts.length > 0 && (
+                <div className="mt-8">
+                  <p className="text-xs text-white/40 mb-3 flex items-center gap-1.5">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <rect x="3" y="1" width="6" height="10" rx="2" stroke="currentColor" strokeWidth="1.2" />
+                      <path d="M5 4.5L7.5 6L5 7.5V4.5Z" fill="currentColor" />
+                    </svg>
+                    Shorts for "{query}"
+                  </p>
+                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+                    {shorts.map((short) => (
+                      <ShortCard key={short.video_id} video={short} />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <StatsBar count={videos.length} query={query} topScore={topScore} commentsRead={commentsRead} />
@@ -113,7 +133,7 @@ export default function App() {
 
         {view === 'saved' && <SavedPage />}
 
-        
+        {view === 'trending' && <TrendingPage />}
       </main>
 
       <footer className="text-center text-xs text-white/20 py-4 border-t border-white/8">
