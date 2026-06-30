@@ -1,4 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
+import { useAuth } from '../context/AuthContext'
+import { saveVideo, unsaveVideo } from '../services/savedApi'
 
 function formatViews(views) {
   if (!views) return '—'
@@ -18,12 +20,38 @@ function formatDuration(iso) {
   return `${m}m ${s.toString().padStart(2, '0')}s`
 }
 
-export default function VideoCard({ video }) {
+export default function VideoCard({ video, initiallySaved = false, onUnsave }) {
   const {
     title, channel, views, duration, thumbnail_url, video_id,
     score, label, rank, ai_tag,
     positive_signals = [], negative_signals = []
   } = video
+
+  const { user } = useAuth()
+  const [saved, setSaved] = useState(initiallySaved)
+  const [saving, setSaving] = useState(false)
+
+  const handleToggleSave = async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!user) return
+
+    setSaving(true)
+    try {
+      if (saved) {
+        await unsaveVideo(video_id)
+        setSaved(false)
+        if (onUnsave) onUnsave(video_id)
+      } else {
+        await saveVideo(video)
+        setSaved(true)
+      }
+    } catch (err) {
+      console.error('Save toggle failed', err)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className={`bg-[#13131C] rounded-2xl p-4 flex gap-4 transition-all hover:bg-[#181822] ${
@@ -60,11 +88,32 @@ export default function VideoCard({ video }) {
           >
             {title}
           </a>
-          {label && (
-            <span className="flex-shrink-0 text-xs bg-[#E8294C]/10 text-[#E8294C] border border-[#E8294C]/20 px-2.5 py-1 rounded-full font-medium whitespace-nowrap">
-              {label}
-            </span>
-          )}
+
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {label && (
+              <span className="text-xs bg-[#E8294C]/10 text-[#E8294C] border border-[#E8294C]/20 px-2.5 py-1 rounded-full font-medium whitespace-nowrap">
+                {label}
+              </span>
+            )}
+            {user && (
+              <button
+                onClick={handleToggleSave}
+                disabled={saving}
+                title={saved ? 'Remove from saved' : 'Save video'}
+                className="text-white/30 hover:text-[#E8294C] transition disabled:opacity-50"
+              >
+                {saved ? (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="#E8294C">
+                    <path d="M4 2C3.4 2 3 2.4 3 3V14L8 11L13 14V3C13 2.4 12.6 2 12 2H4Z" />
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M4 2C3.4 2 3 2.4 3 3V14L8 11L13 14V3C13 2.4 12.6 2 12 2H4Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Meta */}
@@ -93,16 +142,18 @@ export default function VideoCard({ video }) {
         </div>
 
         {/* Score bar */}
-        <div className="flex items-center gap-2 mb-2.5">
-          <span className="text-xs text-white/25 italic">Score</span>
-          <div className="flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[#E8294C] rounded-full transition-all duration-500"
-              style={{width: `${Math.min(score, 100)}%`}}
-            />
+        {score != null && (
+          <div className="flex items-center gap-2 mb-2.5">
+            <span className="text-xs text-white/25 italic">Score</span>
+            <div className="flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#E8294C] rounded-full transition-all duration-500"
+                style={{width: `${Math.min(score, 100)}%`}}
+              />
+            </div>
+            <span className="text-xs font-semibold text-white/70">{Math.round(score)}</span>
           </div>
-          <span className="text-xs font-semibold text-white/70">{Math.round(score)}</span>
-        </div>
+        )}
 
         {/* Sentiment chips */}
         {(positive_signals.length > 0 || negative_signals.length > 0 || ai_tag) && (

@@ -2,10 +2,12 @@ import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import AuthModal from './AuthModal'
 
-export default function Header() {
+export default function Header({ activeView, onNavigate }) {
   const { user, logoutUser } = useAuth()
   const [modalOpen, setModalOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+
+  const navItems = ['Discover', 'Trending', 'Saved']
 
   return (
     <header className="w-full bg-[#0D0D14] border-b border-[#E8294C]/30 px-8 py-4 flex items-center justify-between">
@@ -22,13 +24,16 @@ export default function Header() {
 
       <div className="flex items-center gap-8">
         <nav className="flex gap-8">
-          {['Discover', 'Trending', 'Saved'].map((item) => (
-            <a key={item} href="#"
+          {navItems.map((item) => (
+            <button
+              key={item}
+              onClick={() => onNavigate(item.toLowerCase())}
               className={`text-sm font-medium transition-colors ${
-                item === 'Discover' ? 'text-[#E8294C]' : 'text-white/60 hover:text-white'
-              }`}>
+                activeView === item.toLowerCase() ? 'text-[#E8294C]' : 'text-white/60 hover:text-white'
+              }`}
+            >
               {item}
-            </a>
+            </button>
           ))}
         </nav>
 
