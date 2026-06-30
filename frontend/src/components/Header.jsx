@@ -7,7 +7,7 @@ export default function Header({ activeView, onNavigate }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const navItems = ['Discover', 'Trending', 'Saved']
+  const navItems = ['Discover', 'Saved']
 
   return (
     <header className="w-full bg-[#0D0D14] border-b border-[#E8294C]/30 px-8 py-4 flex items-center justify-between">

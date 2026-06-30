@@ -1,9 +1,14 @@
 from fastapi import APIRouter, HTTPException, Query
 from app.services.youtube import search_youtube
-from app.services.scoring import rank_and_categorize, compute_score_with_sentiment
-from app.services.groq import get_ai_summary
+from app.services.scoring import (
+    compute_score_with_sentiment,
+    apply_content_analysis_adjustment,
+)
+from app.services.groq import get_ai_summary, get_video_summary
 from app.services.comments import fetch_comments
 from app.services.sentiment import analyze_sentiment
+from app.services.transcript import fetch_transcript
+from app.services.content_analysis import analyze_transcript
 from app.models.video import RankResponse, RankedVideo
 
 router = APIRouter()
@@ -20,38 +25,62 @@ async def rank(
         if not videos:
             return RankResponse(query=query, intent=intent, results=[], total=0, top_score=0, total_comments_read=0)
 
-        # 2. For top 6 videos, fetch comments and run sentiment
-        # (limit to 6 to manage YouTube API quota)
+        # 2. For top 6 videos, fetch comments + sentiment
         sentiment_data = {}
         total_comments_read = 0
 
         for video in videos[:6]:
             comments = await fetch_comments(video.video_id, max_results=40)
             total_comments_read += len(comments)
-            if comments:
-                sentiment = await analyze_sentiment(comments)
-            else:
-                sentiment = {"positive": [], "negative": [], "sentiment_score": 50.0}
+            sentiment = await analyze_sentiment(comments) if comments else {
+                "positive": [], "negative": [], "sentiment_score": 50.0
+            }
             sentiment_data[video.video_id] = {
                 "sentiment": sentiment,
                 "comments_count": len(comments),
             }
 
-        # 3. Score with sentiment blended in, then rank
+        # 3. Compute base scores (metadata + sentiment)
         scored = []
         for video in videos:
             s = sentiment_data.get(video.video_id, {})
             sentiment_score = s.get("sentiment", {}).get("sentiment_score", 50.0)
-            score = compute_score_with_sentiment(video, intent, sentiment_score)
-            scored.append((video, score, s))
+            base_score = compute_score_with_sentiment(video, intent, sentiment_score)
+            scored.append((video, base_score, s))
 
         scored.sort(key=lambda x: x[1], reverse=True)
 
-        # 4. Assign labels and get AI summaries for top 4
+        # 4. Fetch transcripts for top 5 only (used for content analysis + summaries)
+        transcripts = {}
+        for video, base_score, s in scored[:5]:
+            transcripts[video.video_id] = fetch_transcript(video.video_id)
+
+        # 5. Content analysis (top 5 only — expensive, only matters for ranking)
+        content_data = {}
+        for video, base_score, s in scored[:5]:
+            transcript = transcripts.get(video.video_id, "")
+            if transcript:
+                content_data[video.video_id] = await analyze_transcript(video.title, transcript)
+            else:
+                content_data[video.video_id] = None
+
+        # 6. Re-score with content analysis adjustment applied
+        final_scored = []
+        for video, base_score, s in scored:
+            content_analysis = content_data.get(video.video_id)
+            if content_analysis:
+                final_score = apply_content_analysis_adjustment(base_score, content_analysis)
+            else:
+                final_score = base_score
+            final_scored.append((video, final_score, s, content_analysis))
+
+        final_scored.sort(key=lambda x: x[1], reverse=True)
+
+        # 7. Build response — AI tag for top 4, video_summary for ALL videos
         LABELS = ["Best overall", "Quick learning", "Best for beginners", "Most detailed"]
         results = []
 
-        for i, (video, score, s) in enumerate(scored):
+        for i, (video, score, s, content_analysis) in enumerate(final_scored):
             label = LABELS[i] if i < len(LABELS) else None
             sentiment = s.get("sentiment", {})
 
@@ -66,6 +95,12 @@ async def rank(
                 )
                 ai_summary = ai_data.get("summary", "")
                 ai_tag = ai_data.get("tag", "")
+
+            # Video summary only for top 4 labeled results
+            video_summary = ""
+            if i < 4:
+                transcript = transcripts.get(video.video_id, "")
+                video_summary = await get_video_summary(video.title, video.channel, transcript)
 
             results.append(RankedVideo(
                 video_id=video.video_id,
@@ -85,6 +120,7 @@ async def rank(
                 negative_signals=sentiment.get("negative", []),
                 sentiment_score=sentiment.get("sentiment_score"),
                 comments_read=s.get("comments_count", 0),
+                video_summary=video_summary,
             ))
 
         top_score = results[0].score if results else 0

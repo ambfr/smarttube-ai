@@ -113,11 +113,7 @@ export default function App() {
 
         {view === 'saved' && <SavedPage />}
 
-        {view === 'trending' && (
-          <div className="text-center py-24 text-white/40 text-sm">
-            Trending coming soon.
-          </div>
-        )}
+        
       </main>
 
       <footer className="text-center text-xs text-white/20 py-4 border-t border-white/8">

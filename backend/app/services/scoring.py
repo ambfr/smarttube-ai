@@ -191,3 +191,30 @@ def rank_and_categorize(videos: list[VideoResult], intent: str = "beginner"):
         })
 
     return results
+
+def apply_content_analysis_adjustment(base_score: float, content_analysis: dict) -> float:
+    """
+    Adjust score based on transcript-derived content analysis.
+    Heavily penalizes commentary/reaction videos masquerading as instructional content.
+    """
+    if not content_analysis:
+        return base_score
+
+    content_type = content_analysis.get("content_type", "unclear")
+    explanation_quality = content_analysis.get("explanation_quality", 50.0)
+    topic_match = content_analysis.get("topic_match", True)
+
+    score = base_score
+
+    # Heavy penalty if the video doesn't actually teach what the title claims
+    if not topic_match:
+        score *= 0.45  # cut score nearly in half
+
+    # Penalty for commentary/reaction content when searching for learning material
+    if content_type in ("commentary", "review", "entertainment"):
+        score *= 0.7
+
+    # Blend in explanation quality (from transcript) — 25% weight
+    score = (score * 0.75) + (explanation_quality * 0.25)
+
+    return round(min(score, 100), 1)   
