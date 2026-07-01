@@ -61,7 +61,7 @@ export default function App() {
                 not just the most popular
               </h1>
               <p className="text-xs sm:text-sm text-white/40 max-w-sm mx-auto px-2">
-                SmartTube ranks YouTube results by quality, clarity, and credibility — not clicks.
+                SkipTheFluff ranks YouTube results by quality, clarity, and credibility — not clicks.
               </p>
             </div>
 
