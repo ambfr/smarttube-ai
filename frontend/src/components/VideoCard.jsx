@@ -23,13 +23,14 @@ function formatDuration(iso) {
 export default function VideoCard({ video, initiallySaved = false, onUnsave }) {
   const {
     title, channel, views, duration, thumbnail_url, video_id,
-    score, label, rank, ai_tag,
+    score, label, rank, ai_tag, video_summary,
     positive_signals = [], negative_signals = []
   } = video
 
   const { user } = useAuth()
   const [saved, setSaved] = useState(initiallySaved)
   const [saving, setSaving] = useState(false)
+  const [summaryOpen, setSummaryOpen] = useState(false)
 
   const handleToggleSave = async (e) => {
     e.preventDefault()
@@ -54,14 +55,14 @@ export default function VideoCard({ video, initiallySaved = false, onUnsave }) {
   }
 
   return (
-    <div className={`bg-[#13131C] rounded-2xl p-4 flex gap-4 transition-all hover:bg-[#181822] ${
+    <div className={`bg-[#13131C] rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:gap-4 transition-all hover:bg-[#181822] ${
       rank === 0
         ? 'border border-[#E8294C]/60 shadow-[0_0_20px_rgba(232,41,76,0.1)]'
         : 'border border-white/8'
     }`}>
       {/* Thumbnail */}
-      <a href={`https://youtube.com/watch?v=${video_id}`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-        <div className="w-28 h-20 rounded-xl overflow-hidden bg-white/5 flex items-center justify-center">
+      <a href={`https://youtube.com/watch?v=${video_id}`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 w-full sm:w-28">
+        <div className="w-full h-40 sm:w-28 sm:h-20 rounded-xl overflow-hidden bg-white/5 flex items-center justify-center">
           {thumbnail_url ? (
             <img src={thumbnail_url} alt={title} className="w-full h-full object-cover" />
           ) : (
@@ -117,7 +118,7 @@ export default function VideoCard({ video, initiallySaved = false, onUnsave }) {
         </div>
 
         {/* Meta */}
-        <div className="flex items-center gap-3 text-xs text-white/30 mb-2.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/30 mb-2.5">
           <span className="flex items-center gap-1">
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
               <circle cx="5" cy="3" r="2" stroke="currentColor" strokeWidth="1.2"/>
@@ -176,7 +177,28 @@ export default function VideoCard({ video, initiallySaved = false, onUnsave }) {
           </div>
         )}
 
-        
+        {/* Summary toggle */}
+        {video_summary && (
+          <div>
+            <button
+              onClick={() => setSummaryOpen(!summaryOpen)}
+              className="flex items-center gap-1 text-xs text-[#E8294C]/80 hover:text-[#E8294C] transition font-medium"
+            >
+              <svg
+                width="10" height="10" viewBox="0 0 10 10" fill="none"
+                className={`transition-transform ${summaryOpen ? 'rotate-90' : ''}`}
+              >
+                <path d="M3 1.5L7 5L3 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {summaryOpen ? 'Hide summary' : "What's in this video?"}
+            </button>
+            {summaryOpen && (
+              <p className="text-xs text-white/50 mt-2 leading-relaxed bg-white/3 border border-white/8 rounded-lg p-3">
+                {video_summary}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

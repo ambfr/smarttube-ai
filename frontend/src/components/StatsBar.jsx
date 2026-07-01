@@ -4,7 +4,7 @@ export default function StatsBar({ count, query, topScore, commentsRead }) {
   if (!query) return null
 
   return (
-    <div className="w-full border-t border-white/8 mt-8 pt-6 grid grid-cols-4 gap-4 text-center">
+    <div className="w-full border-t border-white/8 mt-8 pt-6 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
       {[
         { value: topScore ? Math.round(topScore) : '—', label: 'Top score' },
         { value: count || '—', label: 'Analyzed' },
