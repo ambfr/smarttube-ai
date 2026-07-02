@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 const TIPS = [
   'Be specific with your search — try "beginner sourdough bread recipe" instead of just "baking".',
   'Scores aren\'t based on views or likes alone — we actually read comments and the video content to judge quality.',
-  'Tap "What\'s in this video?" on any result to see a quick summary before you click play.',
+  'Sign in to bookmark videos and access them later from your Saved tab.',
   'Videos that just talk *about* a topic (reviews, reactions, opinions) rank lower than ones that actually teach or show it.',
 ]
 
